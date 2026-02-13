@@ -45,7 +45,6 @@ class RoleResource extends BaseRoleResource
                     });
 
                 return Forms\Components\Section::make($sectionLabel)
-                    ->description(fn () => new HtmlString('<span style="word-break: break-word;">' . Utils::showModelPath($entity['fqcn']) . '</span>'))
                     ->compact()
                     ->schema([
                         Forms\Components\Checkbox::make($selectAllFieldName)
