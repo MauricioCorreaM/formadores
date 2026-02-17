@@ -27,7 +27,7 @@ class UserPolicy
      * @param  \App\Models\User  $user
      * @return bool
      */
-    public function view(User $user): bool
+    public function view(User $user, User $record): bool
     {
         return $user->can('view_user');
     }
@@ -49,8 +49,22 @@ class UserPolicy
      * @param  \App\Models\User  $user
      * @return bool
      */
-    public function update(User $user): bool
+    public function update(User $user, User $record): bool
     {
+        if ($user->hasRole('node_owner')) {
+            if (! $record->hasRole('teacher')) {
+                return false;
+            }
+
+            if (! $user->primary_node_id) {
+                return false;
+            }
+
+            if ($record->primary_node_id !== $user->primary_node_id) {
+                return false;
+            }
+        }
+
         return $user->can('update_user');
     }
 
@@ -60,7 +74,7 @@ class UserPolicy
      * @param  \App\Models\User  $user
      * @return bool
      */
-    public function delete(User $user): bool
+    public function delete(User $user, User $record): bool
     {
         return $user->can('delete_user');
     }
@@ -82,7 +96,7 @@ class UserPolicy
      * @param  \App\Models\User  $user
      * @return bool
      */
-    public function forceDelete(User $user): bool
+    public function forceDelete(User $user, User $record): bool
     {
         return $user->can('force_delete_user');
     }
@@ -104,7 +118,7 @@ class UserPolicy
      * @param  \App\Models\User  $user
      * @return bool
      */
-    public function restore(User $user): bool
+    public function restore(User $user, User $record): bool
     {
         return $user->can('restore_user');
     }
@@ -126,7 +140,7 @@ class UserPolicy
      * @param  \App\Models\User  $user
      * @return bool
      */
-    public function replicate(User $user): bool
+    public function replicate(User $user, User $record): bool
     {
         return $user->can('replicate_user');
     }

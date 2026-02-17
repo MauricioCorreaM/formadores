@@ -24,6 +24,12 @@ class ShieldSeeder extends Seeder
                     "update_role",
                     "delete_role",
                     "delete_any_role",
+                    "force_delete_role",
+                    "force_delete_any_role",
+                    "restore_role",
+                    "restore_any_role",
+                    "replicate_role",
+                    "reorder_role",
                     "view_campus",
                     "view_any_campus",
                     "create_campus",
@@ -121,6 +127,35 @@ class ShieldSeeder extends Seeder
                     "force_delete_user",
                     "force_delete_any_user"
                 ]
+            },
+            {
+                "name":"node_owner",
+                "guard_name":"web",
+                "permissions":[
+                    "view_campus",
+                    "view_any_campus",
+                    "view_department",
+                    "view_any_department",
+                    "view_focalization",
+                    "view_any_focalization",
+                    "view_municipality",
+                    "view_any_municipality",
+                    "view_node",
+                    "view_any_node",
+                    "view_school",
+                    "view_any_school",
+                    "view_secretaria",
+                    "view_any_secretaria",
+                    "view_user",
+                    "view_any_user",
+                    "create_user",
+                    "update_user"
+                ]
+            },
+            {
+                "name":"teacher",
+                "guard_name":"web",
+                "permissions":[]
             }
         ]';
         $directPermissions = '[]';

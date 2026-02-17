@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources;
 use App\Filament\Admin\Resources\DepartmentResource\Pages;
 use App\Filament\Admin\Resources\DepartmentResource\RelationManagers;
 use App\Models\Department;
+use App\Support\Search\LikeSearch;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -31,6 +32,7 @@ class DepartmentResource extends Resource
             ->schema([
                 Forms\Components\TextInput::make('name')
                     ->required()
+                    ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule) => $rule->whereNull('deleted_at'))
                     ->maxLength(255),
             ]);
     }
@@ -41,7 +43,13 @@ class DepartmentResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nombre')
-                    ->searchable(),
+                    ->formatStateUsing(function (?string $state): string {
+                        if ($state === 'SIN ASIGNAR') {
+                            return 'Sin asignar';
+                        }
+                        return $state ?? '-';
+                    })
+                    ->searchable(query: fn (Builder $query, string $search): Builder => LikeSearch::apply($query, 'name', $search)),
                 Tables\Columns\TextColumn::make('nodes.name')
                     ->label('Nodos')
                     ->badge(),
@@ -76,6 +84,27 @@ class DepartmentResource extends Resource
         return [
             RelationManagers\NodesRelationManager::class,
         ];
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = auth()->user();
+
+        if (! $user || $user->hasRole('super_admin')) {
+            return $query;
+        }
+
+        if (! $user->hasRole('node_owner')) {
+            return $query;
+        }
+
+        $primaryNodeId = $user->primary_node_id;
+        if (! $primaryNodeId) {
+            return $query->whereRaw('1=0');
+        }
+
+        return $query->whereHas('nodes', fn (Builder $nodeQuery) => $nodeQuery->where('nodes.id', $primaryNodeId));
     }
 
     public static function getPages(): array

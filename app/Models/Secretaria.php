@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Secretaria extends Model
@@ -10,4 +11,9 @@ class Secretaria extends Model
     use SoftDeletes;
 
     protected $fillable = ['name'];
+
+    public function municipalities(): HasMany
+    {
+        return $this->hasMany(Municipality::class);
+    }
 }

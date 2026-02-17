@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Node extends Model
@@ -15,5 +16,10 @@ class Node extends Model
     public function departments(): BelongsToMany
     {
         return $this->belongsToMany(Department::class);
+    }
+
+    public function schools(): HasMany
+    {
+        return $this->hasMany(School::class);
     }
 }

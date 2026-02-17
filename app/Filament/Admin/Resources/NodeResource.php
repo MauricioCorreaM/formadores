@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources;
 use App\Filament\Admin\Resources\NodeResource\Pages;
 use App\Filament\Admin\Resources\NodeResource\RelationManagers;
 use App\Models\Node;
+use App\Support\Search\LikeSearch;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -31,6 +32,7 @@ class NodeResource extends Resource
             ->schema([
                 Forms\Components\TextInput::make('name')
                     ->required()
+                    ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule) => $rule->whereNull('deleted_at'))
                     ->maxLength(255),
             ]);
     }
@@ -40,7 +42,7 @@ class NodeResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('name')
-                    ->searchable(),
+                    ->searchable(query: fn (Builder $query, string $search): Builder => LikeSearch::apply($query, 'name', $search)),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -72,6 +74,27 @@ class NodeResource extends Resource
         return [
             RelationManagers\DepartmentsRelationManager::class,
         ];
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = auth()->user();
+
+        if (! $user || $user->hasRole('super_admin')) {
+            return $query;
+        }
+
+        if (! $user->hasRole('node_owner')) {
+            return $query;
+        }
+
+        $primaryNodeId = $user->primary_node_id;
+        if (! $primaryNodeId) {
+            return $query->whereRaw('1=0');
+        }
+
+        return $query->where('id', $primaryNodeId);
     }
 
     public static function getPages(): array
