@@ -24,21 +24,19 @@ class MaterializeSeedData extends Command
     {
         $truncate = (bool) $this->option('truncate');
 
-        DB::beginTransaction();
         try {
             if ($truncate) {
                 $this->truncateData();
             }
 
-            $this->materializeDepartmentsAndNodes();
-            $this->materializeSecretariasAndMunicipalities();
-            $this->materializeSchools();
-            $this->materializeFocalizations();
-            $this->materializeCampuses();
-
-            DB::commit();
+            DB::transaction(function (): void {
+                $this->materializeDepartmentsAndNodes();
+                $this->materializeSecretariasAndMunicipalities();
+                $this->materializeSchools();
+                $this->materializeFocalizations();
+                $this->materializeCampuses();
+            });
         } catch (\Throwable $e) {
-            DB::rollBack();
             $this->error($e->getMessage());
             return self::FAILURE;
         }
@@ -50,20 +48,23 @@ class MaterializeSeedData extends Command
     private function truncateData(): void
     {
         Schema::disableForeignKeyConstraints();
-        DB::table('campus_focalization')->truncate();
-        DB::table('campus_user')->truncate();
-        if (Schema::hasTable('node_user')) {
-            DB::table('node_user')->truncate();
+        try {
+            DB::table('campus_focalization')->truncate();
+            DB::table('campus_user')->truncate();
+            if (Schema::hasTable('node_user')) {
+                DB::table('node_user')->truncate();
+            }
+            DB::table('campuses')->truncate();
+            DB::table('schools')->truncate();
+            DB::table('municipalities')->truncate();
+            DB::table('secretarias')->truncate();
+            DB::table('department_node')->truncate();
+            DB::table('departments')->truncate();
+            DB::table('nodes')->truncate();
+            DB::table('focalizations')->truncate();
+        } finally {
+            Schema::enableForeignKeyConstraints();
         }
-        DB::table('campuses')->truncate();
-        DB::table('schools')->truncate();
-        DB::table('municipalities')->truncate();
-        DB::table('secretarias')->truncate();
-        DB::table('department_node')->truncate();
-        DB::table('departments')->truncate();
-        DB::table('nodes')->truncate();
-        DB::table('focalizations')->truncate();
-        Schema::enableForeignKeyConstraints();
     }
 
     private function materializeDepartmentsAndNodes(): void
