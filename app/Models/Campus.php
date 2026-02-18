@@ -22,4 +22,10 @@ class Campus extends Model
     {
         return $this->belongsToMany(Focalization::class);
     }
+
+    public function teachers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'campus_user')
+            ->withPivot('focalization_id');
+    }
 }

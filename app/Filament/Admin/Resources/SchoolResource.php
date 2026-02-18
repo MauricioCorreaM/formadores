@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources;
 use App\Filament\Admin\Resources\SchoolResource\Pages;
 use App\Filament\Admin\Resources\SchoolResource\RelationManagers;
 use App\Models\School;
+use App\Support\Search\LikeSearch;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -44,10 +45,12 @@ class SchoolResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nombre')
-                    ->searchable(),
+                    ->searchable(query: function (Builder $query, string $search): Builder {
+                        return LikeSearch::apply($query, 'name', $search);
+                    }),
                 Tables\Columns\TextColumn::make('dane_code')
                     ->label('Código DANE')
-                    ->searchable(),
+                    ->searchable(query: fn (Builder $query, string $search): Builder => LikeSearch::apply($query, 'dane_code', $search)),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -81,6 +84,27 @@ class SchoolResource extends Resource
         ];
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = auth()->user();
+
+        if (! $user || $user->hasRole('super_admin')) {
+            return $query;
+        }
+
+        if (! $user->hasRole('node_owner')) {
+            return $query;
+        }
+
+        $primaryNodeId = $user->primary_node_id;
+        if (! $primaryNodeId) {
+            return $query->whereRaw('1=0');
+        }
+
+        return $query->where('node_id', $primaryNodeId);
+    }
+
     public static function getPages(): array
     {
         return [
@@ -89,4 +113,5 @@ class SchoolResource extends Resource
             'edit' => Pages\EditSchool::route('/{record}/edit'),
         ];
     }
+
 }

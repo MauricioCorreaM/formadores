@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources;
 use App\Filament\Admin\Resources\MunicipalityResource\Pages;
 use App\Filament\Admin\Resources\MunicipalityResource\RelationManagers;
 use App\Models\Municipality;
+use App\Support\Search\LikeSearch;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -34,6 +35,7 @@ class MunicipalityResource extends Resource
                     ->maxLength(255),
                 Forms\Components\TextInput::make('dane_code')
                     ->required()
+                    ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule) => $rule->whereNull('deleted_at'))
                     ->maxLength(255),
                 Forms\Components\Select::make('department_id')
                     ->relationship('department', 'name')
@@ -52,17 +54,17 @@ class MunicipalityResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('name')
-                    ->label('Nombre')
-                    ->searchable(),
                 Tables\Columns\TextColumn::make('dane_code')
-                    ->label('Código DANE')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('department.name')
-                    ->label('Departamento')
-                    ->sortable(),
+                    ->label('CODIGO_DANE')
+                    ->searchable(query: fn (Builder $query, string $search): Builder => LikeSearch::apply($query, 'dane_code', $search)),
+                Tables\Columns\TextColumn::make('name')
+                    ->label('NOMBRE')
+                    ->searchable(query: fn (Builder $query, string $search): Builder => LikeSearch::apply($query, 'name', $search)),
                 Tables\Columns\TextColumn::make('secretaria.name')
-                    ->label('Secretaría')
+                    ->label('SECRETARÍA')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('department.name')
+                    ->label('DEPARTAMENTO')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
@@ -95,6 +97,27 @@ class MunicipalityResource extends Resource
         return [
             //
         ];
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = auth()->user();
+
+        if (! $user || $user->hasRole('super_admin')) {
+            return $query;
+        }
+
+        if (! $user->hasRole('node_owner')) {
+            return $query;
+        }
+
+        $primaryNodeId = $user->primary_node_id;
+        if (! $primaryNodeId) {
+            return $query->whereRaw('1=0');
+        }
+
+        return $query->whereHas('schools', fn (Builder $schoolQuery) => $schoolQuery->where('node_id', $primaryNodeId));
     }
 
     public static function getPages(): array

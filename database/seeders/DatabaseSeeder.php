@@ -17,13 +17,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             ShieldSeeder::class,
-            NodeSeeder::class,
-            DepartmentSeeder::class,
-            SecretariaSeeder::class,
-            MunicipalitySeeder::class,
-            SchoolSeeder::class,
-            FocalizationSeeder::class,
-            CampusSeeder::class,
+            ImportSeedDataSeeder::class,
             SuperAdminSeeder::class,
         ]);
     }
