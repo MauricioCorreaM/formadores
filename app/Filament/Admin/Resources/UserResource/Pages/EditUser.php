@@ -50,6 +50,31 @@ class EditUser extends EditRecord
         return $data;
     }
 
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        $this->record->loadMissing('campuses.school');
+
+        $data['school_campus_assignments'] = $this->record->campuses
+            ->map(function ($campus): array {
+                $focalizationId = $campus->pivot->focalization_id;
+
+                return [
+                    'school_id' => $campus->school_id,
+                    'campus_focalization_key' => $campus->id . '|' . ($focalizationId ? (string) $focalizationId : ''),
+                ];
+            })
+            ->values()
+            ->all();
+
+        if (empty($data['school_campus_assignments'])) {
+            $data['school_campus_assignments'] = [
+                ['school_id' => null, 'campus_focalization_key' => null],
+            ];
+        }
+
+        return $data;
+    }
+
     protected function afterSave(): void
     {
         if ($this->selectedRole) {

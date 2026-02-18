@@ -62,6 +62,16 @@ class CreateUser extends CreateRecord
         $this->syncCampusAssignments($state);
     }
 
+    protected function getRedirectUrl(): string
+    {
+        return static::getResource()::getUrl('index');
+    }
+
+    protected function preserveFormDataWhenCreatingAnother(): array
+    {
+        return [];
+    }
+
     private function syncCampusAssignments(array $state): void
     {
         DB::table('campus_user')

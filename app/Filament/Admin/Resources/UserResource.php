@@ -29,12 +29,12 @@ class UserResource extends Resource
     protected static ?string $pluralModelLabel = 'Formadores';
 
     private const DOCUMENT_TYPES = [
-        'CEDULA_CIUDADANIA' => 'CÃ‰DULA DE CIUDADANÃA',
-        'CEDULA_EXTRANJERIA' => 'CÃ‰DULA DE EXTRANJERÃA',
+        'CEDULA_CIUDADANIA' => 'CÉDULA DE CIUDADANÍA',
+        'CEDULA_EXTRANJERIA' => 'CÉDULA DE EXTRANJERÍA',
         'NUIP' => 'NUIP (MENORES DE EDAD)',
         'NIP' => 'NIP (EXTRANJEROS)',
         'PEP' => 'PERMISO ESPECIAL DE PERMANENCIA',
-        'PPT' => 'PERMISO POR PROTECCIÃ“N TEMPORAL',
+        'PPT' => 'PERMISO POR PROTECCIÓN TEMPORAL',
         'NIT' => 'NIT',
         'OTRO' => 'OTRO',
     ];
@@ -67,26 +67,26 @@ class UserResource extends Resource
     ];
 
     private const ETHNIC_BELONGING = [
-        'INDIGENA' => 'INDÃGENA',
+        'INDIGENA' => 'INDÍGENA',
         'GITANO_RROM' => 'GITANO(A) O RROM',
-        'RAIZAL' => 'RAIZAL DEL ARCHIPIÃ‰LAGO DE SAN ANDRÃ‰S',
+        'RAIZAL' => 'RAIZAL DEL ARCHIPIÉLAGO DE SAN ANDRÉS',
         'PALENQUERO' => 'PALENQUERO(A) DE SAN BASILIO',
         'NEGRO' => 'NEGRO(A)',
         'MULATO' => 'MULATO(A)',
         'AFRODESCENDIENTE' => 'AFRODESCENDIENTE',
         'AFROCOLOMBIANO' => 'AFROCOLOMBIANO(A)',
-        'NINGUNO' => 'NINGÃšN GRUPO Ã‰TNICO',
+        'NINGUNO' => 'NINGÚN GRUPO ÉTNICO',
     ];
 
     private const DISABILITY = [
         'NO' => 'NO',
         'AUDITIVA' => 'AUDITIVA',
-        'FISICA' => 'FÃSICA',
+        'FISICA' => 'FÍSICA',
         'INTELECTUAL' => 'INTELECTUAL',
         'VISUAL' => 'VISUAL',
         'SORDOCEGUERA' => 'SORDOSEGUERA',
         'PSICOSOCIAL' => 'PSICOSOCIAL',
-        'MULTIPLE' => 'MÃšLTIPLE',
+        'MULTIPLE' => 'MÚLTIPLE',
     ];
 
     private static function municipalityOptionsForNode(?int $nodeId): array
@@ -134,79 +134,97 @@ class UserResource extends Resource
                     ->formatStateUsing(fn ($state, ?User $record) => $record?->roles->first()?->name)
                     ->dehydrated()
                     ->live(),
-                Forms\Components\Select::make('document_type')
-                    ->label('Tipo Documento')
-                    ->options(self::DOCUMENT_TYPES)
-                    ->required()
-                    ->searchable(),
-                Forms\Components\TextInput::make('document_number')
-                    ->label('NÃºmero IdentificaciÃ³n')
-                    ->required()
-                    ->maxLength(100),
-                Forms\Components\TextInput::make('first_name')
-                    ->label('Primer Nombre')
-                    ->required()
-                    ->maxLength(100),
-                Forms\Components\TextInput::make('second_name')
-                    ->label('Segundo Nombre')
-                    ->maxLength(100),
-                Forms\Components\TextInput::make('first_last_name')
-                    ->label('Primer Apellido')
-                    ->required()
-                    ->maxLength(100),
-                Forms\Components\TextInput::make('second_last_name')
-                    ->label('Segundo Apellido')
-                    ->maxLength(100),
-                Forms\Components\TextInput::make('email')
-                    ->label('Correo')
-                    ->email()
-                    ->required()
-                    ->unique(ignoreRecord: true)
-                    ->maxLength(255),
-                Forms\Components\DatePicker::make('birth_date')
-                    ->label('Fecha Nacimiento (AAAA/MM/DD)')
-                    ->native(false)
-                    ->displayFormat('Y/m/d')
-                    ->format('Y-m-d')
-                    ->required(),
-                Forms\Components\Select::make('sex_at_birth')
-                    ->label('Sexo asignado al nacer')
-                    ->options(self::SEX_AT_BIRTH)
-                    ->required(),
-                Forms\Components\Select::make('gender_identity')
-                    ->label('Identidad GÃ©nero')
-                    ->options(self::GENDER_IDENTITY)
-                    ->required(),
-                Forms\Components\Select::make('sexual_orientation')
-                    ->label('OrientaciÃ³n Sexual')
-                    ->options(self::SEXUAL_ORIENTATION)
-                    ->required(),
-                Forms\Components\Select::make('ethnic_belonging')
-                    ->label('Pertenencia Ã‰tnica')
-                    ->options(self::ETHNIC_BELONGING)
-                    ->required(),
-                Forms\Components\Select::make('disability')
-                    ->label('Discapacidad')
-                    ->options(self::DISABILITY)
-                    ->required(),
-                Forms\Components\Toggle::make('is_peasant')
-                    ->label('Â¿Eres Campesino/a?')
-                    ->default(false),
-                Forms\Components\Toggle::make('is_migrant_population')
-                    ->label('Â¿PoblaciÃ³n Migrante?')
-                    ->default(false),
-                Forms\Components\Toggle::make('is_social_barra')
-                    ->label('Â¿Barrismo Social?')
-                    ->default(false),
-                Forms\Components\Toggle::make('is_private_freedom_population')
-                    ->label('Â¿PoblaciÃ³n Privada de la Libertad?')
-                    ->default(false),
-                Forms\Components\Toggle::make('is_human_rights_defender')
-                    ->label('Â¿Persona Defensora de Derechos Humanos?')
-                    ->default(false),
-                Forms\Components\TextInput::make('corregimiento')
-                    ->label('Corregimiento')
-                    ->maxLength(255),
+                Forms\Components\Section::make('Información personal')
+                    ->schema([
+                        Forms\Components\Select::make('document_type')
+                            ->label('Tipo Documento')
+                            ->options(self::DOCUMENT_TYPES)
+                            ->required()
+                            ->searchable(),
+                        Forms\Components\TextInput::make('document_number')
+                            ->label('Número Identificación')
+                            ->required()
+                            ->maxLength(100),
+                        Forms\Components\TextInput::make('first_name')
+                            ->label('Primer Nombre')
+                            ->required()
+                            ->maxLength(100),
+                        Forms\Components\TextInput::make('second_name')
+                            ->label('Segundo Nombre')
+                            ->maxLength(100),
+                        Forms\Components\TextInput::make('first_last_name')
+                            ->label('Primer Apellido')
+                            ->required()
+                            ->maxLength(100),
+                        Forms\Components\TextInput::make('second_last_name')
+                            ->label('Segundo Apellido')
+                            ->maxLength(100),
+                        Forms\Components\TextInput::make('email')
+                            ->label('Correo')
+                            ->email()
+                            ->required()
+                            ->unique(ignoreRecord: true)
+                            ->maxLength(255),
+                        Forms\Components\DatePicker::make('birth_date')
+                            ->label('Fecha Nacimiento (AAAA/MM/DD)')
+                            ->native(false)
+                            ->displayFormat('d/m/Y')
+                            ->format('Y-m-d')
+                            ->defaultFocusedDate(now()->subYears(18)->toDateString())
+                            ->maxDate(now()->subYears(18))
+                            ->closeOnDateSelection()
+                            ->rules([
+                                'required',
+                                'date',
+                                'before_or_equal:' . now()->subYears(18)->toDateString(),
+                            ])
+                            ->validationMessages([
+                                'before_or_equal' => 'La persona debe ser mayor de 18 años.',
+                            ])
+                            ->required(),
+                        Forms\Components\Select::make('sex_at_birth')
+                            ->label('Sexo asignado al nacer')
+                            ->options(self::SEX_AT_BIRTH)
+                            ->required(),
+                        Forms\Components\Select::make('gender_identity')
+                            ->label('Identidad Género')
+                            ->options(self::GENDER_IDENTITY)
+                            ->required(),
+                        Forms\Components\Select::make('sexual_orientation')
+                            ->label('Orientación Sexual')
+                            ->options(self::SEXUAL_ORIENTATION)
+                            ->required(),
+                        Forms\Components\Select::make('ethnic_belonging')
+                            ->label('Pertenencia Étnica')
+                            ->options(self::ETHNIC_BELONGING)
+                            ->required(),
+                        Forms\Components\Select::make('disability')
+                            ->label('Discapacidad')
+                            ->options(self::DISABILITY)
+                            ->required(),
+                    ])
+                    ->columns(2)
+                    ->columnSpanFull(),
+                Forms\Components\Section::make('Información adicional')
+                    ->schema([
+                        Forms\Components\Toggle::make('is_peasant')
+                            ->label('¿Eres Campesino/a?')
+                            ->default(false),
+                        Forms\Components\Toggle::make('is_migrant_population')
+                            ->label('¿Población Migrante?')
+                            ->default(false),
+                        Forms\Components\Toggle::make('is_social_barra')
+                            ->label('¿Barrismo Social?')
+                            ->default(false),
+                        Forms\Components\Toggle::make('is_private_freedom_population')
+                            ->label('¿Población Privada de la Libertad?')
+                            ->default(false),
+                        Forms\Components\Toggle::make('is_human_rights_defender')
+                            ->label('¿Persona Defensora de Derechos Humanos?')
+                            ->default(false),
+                    ])
+                    ->columns(2)
+                    ->columnSpanFull(),
                 Forms\Components\Select::make('primary_node_id')
                     ->label('Nodo principal')
                     ->options(function () {
@@ -227,6 +245,7 @@ class UserResource extends Resource
                         return $query->get()->mapWithKeys(function (Node $node) {
                             $departments = $node->departments->pluck('name')->filter()->values();
                             $suffix = $departments->isEmpty() ? '' : ' - ' . $departments->join(', ');
+
                             return [$node->id => $node->name . $suffix];
                         });
                     })
@@ -346,7 +365,7 @@ class UserResource extends Resource
                                 foreach ($campuses as $campus) {
                                     if ($campus->focalizations->isEmpty()) {
                                         $key = $campus->id . '|';
-                                        $options[$key] = $campus->name . ' - Sin focalizaciÃ³n';
+                                        $options[$key] = $campus->name . ' - Sin focalización';
                                         continue;
                                     }
 
@@ -381,12 +400,12 @@ class UserResource extends Resource
                     ->label('Identificación')
                     ->getStateUsing(function (User $record): string {
                         $type = match ($record->document_type) {
-                            'CÉDULA DE CIUDADANÍA', 'CEDULA_CIUDADANIA' => 'CC',
-                            'CÉDULA DE EXTRANJERÍA', 'CEDULA_EXTRANJERIA' => 'CE',
-                            'NUIP', 'NUIP (MENORES DE EDAD)' => 'NUIP',
-                            'NIP', 'NIP (EXTRANJEROS)' => 'NIP',
-                            'PEP', 'PERMISO ESPECIAL DE PERMANENCIA' => 'PEP',
-                            'PPT', 'PERMISO POR PROTECCIÓN TEMPORAL' => 'PPT',
+                            'CEDULA_CIUDADANIA' => 'CC',
+                            'CEDULA_EXTRANJERIA' => 'CE',
+                            'NUIP' => 'NUIP',
+                            'NIP' => 'NIP',
+                            'PEP' => 'PEP',
+                            'PPT' => 'PPT',
                             'NIT' => 'NIT',
                             'OTRO' => 'OTRO',
                             default => $record->document_type ?: '-',
@@ -406,7 +425,7 @@ class UserResource extends Resource
                     ->label('Email')
                     ->searchable(query: fn (Builder $query, string $search): Builder => LikeSearch::apply($query, 'email', $search)),
                 Tables\Columns\TextColumn::make('dane_ee')
-                    ->label('CÃ³digo DANE Colegios')
+                    ->label('Código DANE Colegios')
                     ->getStateUsing(function (User $record): array|string {
                         $values = $record->campuses
                             ->pluck('school.dane_code')
@@ -437,7 +456,7 @@ class UserResource extends Resource
                         return empty($names) ? '-' : $names;
                     }),
                 Tables\Columns\TextColumn::make('dane_sede')
-                    ->label('CÃ³digo DANE Sede')
+                    ->label('Código DANE Sede')
                     ->getStateUsing(function (User $record): array|string {
                         $values = $record->campuses
                             ->pluck('dane_code')
