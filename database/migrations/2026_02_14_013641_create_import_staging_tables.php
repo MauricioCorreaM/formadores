@@ -22,6 +22,7 @@ return new class extends Migration
         Schema::create('stg_municipalities_schools_raw', function (Blueprint $table) {
             $table->id();
             $table->unsignedInteger('row_num');
+            $table->text('departamento')->nullable();
             $table->text('secretaria')->nullable();
             $table->text('codigo_dane_municipio')->nullable();
             $table->text('municipio')->nullable();

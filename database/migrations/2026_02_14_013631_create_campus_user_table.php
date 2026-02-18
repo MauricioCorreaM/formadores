@@ -14,9 +14,10 @@ return new class extends Migration
         Schema::create('campus_user', function (Blueprint $table) {
             $table->id();
             $table->foreignId('campus_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('focalization_id')->nullable()->constrained('focalizations')->nullOnDelete();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->timestamps();
-            $table->unique(['campus_id', 'user_id']);
+            $table->unique(['campus_id', 'user_id', 'focalization_id'], 'campus_user_campus_user_focalization_unique');
         });
     }
 

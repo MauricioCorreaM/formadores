@@ -14,7 +14,9 @@ return new class extends Migration
         Schema::create('schools', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->string('dane_code')->unique();
+            $table->string('dane_code');
+            $table->foreignId('municipality_id')->nullable()->index();
+            $table->foreignId('node_id')->nullable()->constrained('nodes')->nullOnDelete()->index();
             $table->timestamps();
             $table->softDeletes();
         });
