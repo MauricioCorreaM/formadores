@@ -7,6 +7,8 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
+        "ext-intl": "*",
+        "ext-zip": "*",
         "bezhansalleh/filament-shield": "^3.9",
         "filament/filament": "^3.0",
         "laravel/framework": "^12.0",
