@@ -93,7 +93,8 @@ class CreateUser extends CreateRecord
             ->delete();
 
         $assignments = collect(data_get($state, 'school_campus_assignments', []))
-            ->pluck('campus_focalization_key')
+            ->pluck('campus_focalization_keys')
+            ->flatten()
             ->filter()
             ->unique()
             ->values();
