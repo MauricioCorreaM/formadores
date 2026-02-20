@@ -22,7 +22,11 @@ class CreateUser extends CreateRecord
             return 'Crear Formador - ' . $nodeName;
         }
 
-        return 'Crear Formador';
+        if (($this->data['role'] ?? null) === 'teacher') {
+            return 'Crear Formador';
+        }
+
+        return 'Crear Usuario';
     }
 
     protected function mutateFormDataBeforeCreate(array $data): array
@@ -45,9 +49,19 @@ class CreateUser extends CreateRecord
             $data['second_last_name'] ?? null,
         ])));
 
-        if (empty($data['password'])) {
-            $data['password'] = Str::random(16);
+        if ($this->selectedRole === 'teacher') {
+            if (empty($data['password'])) {
+                $data['password'] = Str::random(16);
+            }
+
+            return $data;
         }
+
+        $temporaryPassword = Str::random(20);
+
+        $data['password'] = $temporaryPassword;
+        $data['generated_password'] = $temporaryPassword;
+        $data['must_change_password'] = true;
 
         return $data;
     }

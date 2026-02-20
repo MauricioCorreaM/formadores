@@ -122,18 +122,74 @@ class UserResource extends Resource
         return $grouped;
     }
 
+    private static function roleOptions(): array
+    {
+        return Role::query()
+            ->whereIn('name', ['super_admin', 'node_owner', 'teacher'])
+            ->pluck('name')
+            ->mapWithKeys(function (string $name): array {
+                $label = match ($name) {
+                    'super_admin' => 'Super administrador',
+                    'node_owner' => 'Lider de nodo',
+                    'teacher' => 'Formador',
+                    default => $name,
+                };
+
+                return [$name => $label];
+            })
+            ->toArray();
+    }
+
+    private static function resolvedRole(Forms\Get $get): ?string
+    {
+        $user = auth()->user();
+
+        if ($user?->hasRole('node_owner')) {
+            return 'teacher';
+        }
+
+        $role = $get('role');
+
+        return is_string($role) ? $role : null;
+    }
+
+    private static function isTeacherContext(Forms\Get $get): bool
+    {
+        return self::resolvedRole($get) === 'teacher';
+    }
+
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
                 Forms\Components\Select::make('role')
                     ->label('Rol')
-                    ->options(fn () => Role::query()->pluck('name', 'name'))
+                    ->options(fn (): array => self::roleOptions())
                     ->required(fn () => auth()->user()?->hasRole('super_admin'))
                     ->visible(fn () => auth()->user()?->hasRole('super_admin'))
                     ->formatStateUsing(fn ($state, ?User $record) => $record?->roles->first()?->name)
                     ->dehydrated()
                     ->live(),
+                Forms\Components\TextInput::make('first_name')
+                    ->label('Primer Nombre')
+                    ->required()
+                    ->maxLength(100),
+                Forms\Components\TextInput::make('second_name')
+                    ->label('Segundo Nombre')
+                    ->maxLength(100),
+                Forms\Components\TextInput::make('first_last_name')
+                    ->label('Primer Apellido')
+                    ->required()
+                    ->maxLength(100),
+                Forms\Components\TextInput::make('second_last_name')
+                    ->label('Segundo Apellido')
+                    ->maxLength(100),
+                Forms\Components\TextInput::make('email')
+                    ->label('Correo')
+                    ->email()
+                    ->required()
+                    ->unique(ignoreRecord: true)
+                    ->maxLength(255),
                 Forms\Components\Section::make('Información personal')
                     ->schema([
                         Forms\Components\Select::make('document_type')
@@ -145,26 +201,6 @@ class UserResource extends Resource
                             ->label('Número Identificación')
                             ->required()
                             ->maxLength(100),
-                        Forms\Components\TextInput::make('first_name')
-                            ->label('Primer Nombre')
-                            ->required()
-                            ->maxLength(100),
-                        Forms\Components\TextInput::make('second_name')
-                            ->label('Segundo Nombre')
-                            ->maxLength(100),
-                        Forms\Components\TextInput::make('first_last_name')
-                            ->label('Primer Apellido')
-                            ->required()
-                            ->maxLength(100),
-                        Forms\Components\TextInput::make('second_last_name')
-                            ->label('Segundo Apellido')
-                            ->maxLength(100),
-                        Forms\Components\TextInput::make('email')
-                            ->label('Correo')
-                            ->email()
-                            ->required()
-                            ->unique(ignoreRecord: true)
-                            ->maxLength(255),
                         Forms\Components\DatePicker::make('birth_date')
                             ->label('Fecha Nacimiento (AAAA/MM/DD)')
                             ->native(false)
@@ -204,6 +240,7 @@ class UserResource extends Resource
                             ->required(),
                     ])
                     ->columns(2)
+                    ->visible(fn (Forms\Get $get) => self::isTeacherContext($get))
                     ->columnSpanFull(),
                 Forms\Components\Section::make('Información adicional')
                     ->schema([
@@ -224,6 +261,7 @@ class UserResource extends Resource
                             ->default(false),
                     ])
                     ->columns(2)
+                    ->visible(fn (Forms\Get $get) => self::isTeacherContext($get))
                     ->columnSpanFull(),
                 Forms\Components\Select::make('primary_node_id')
                     ->label('Nodo principal')
@@ -252,8 +290,8 @@ class UserResource extends Resource
                     ->default(fn () => auth()->user()?->hasRole('node_owner') ? auth()->user()?->primary_node_id : null)
                     ->searchable()
                     ->preload()
-                    ->required(fn (Forms\Get $get) => in_array($get('role'), ['teacher', 'node_owner'], true) || auth()->user()?->hasRole('node_owner'))
-                    ->visible(fn () => ! auth()->user()?->hasRole('node_owner'))
+                    ->required(fn (Forms\Get $get) => in_array(self::resolvedRole($get), ['teacher', 'node_owner'], true))
+                    ->visible(fn (Forms\Get $get) => ! auth()->user()?->hasRole('node_owner') && in_array(self::resolvedRole($get), ['teacher', 'node_owner'], true))
                     ->live(),
                 Forms\Components\Select::make('municipality_id')
                     ->label('Municipio')
@@ -284,7 +322,8 @@ class UserResource extends Resource
                         }
 
                         return self::municipalityOptionsForNode($nodeId ? (int) $nodeId : null);
-                    }),
+                    })
+                    ->visible(fn (Forms\Get $get) => self::isTeacherContext($get)),
                 Forms\Components\Repeater::make('school_campus_assignments')
                     ->label('Colegios y sedes')
                     ->dehydrated(false)
@@ -378,13 +417,12 @@ class UserResource extends Resource
                                 return $options;
                             }),
                     ])
-                    ->visible(fn (Forms\Get $get) => $get('role') === 'teacher' || auth()->user()?->hasRole('node_owner'))
-                    ->required(fn (Forms\Get $get) => $get('role') === 'teacher' || auth()->user()?->hasRole('node_owner')),
+                    ->visible(fn (Forms\Get $get) => self::isTeacherContext($get))
+                    ->required(fn (Forms\Get $get) => self::isTeacherContext($get)),
                 Forms\Components\TextInput::make('password')
                     ->password()
-                    ->visible(fn (Forms\Get $get) => ! (auth()->user()?->hasRole('super_admin') && $get('role') === 'teacher') && ! auth()->user()?->hasRole('node_owner'))
+                    ->visible(false)
                     ->dehydrated(fn ($state) => filled($state))
-                    ->required(fn (?User $record) => $record === null)
                     ->maxLength(255),
             ]);
     }
@@ -424,6 +462,22 @@ class UserResource extends Resource
                 Tables\Columns\TextColumn::make('email')
                     ->label('Email')
                     ->searchable(query: fn (Builder $query, string $search): Builder => LikeSearch::apply($query, 'email', $search)),
+                Tables\Columns\TextColumn::make('generated_password')
+                    ->label('Password temporal')
+                    ->visible(fn () => auth()->user()?->hasRole('super_admin'))
+                    ->getStateUsing(function (User $record): string {
+                        if (! $record->hasAnyRole(['super_admin', 'node_owner']) || blank($record->generated_password)) {
+                            return '-';
+                        }
+
+                        return 'Copiar password';
+                    })
+                    ->badge()
+                    ->color('warning')
+                    ->copyable(fn (User $record): bool => $record->hasAnyRole(['super_admin', 'node_owner']) && filled($record->generated_password))
+                    ->copyableState(fn (User $record): ?string => $record->generated_password)
+                    ->copyMessage('Password copiado al portapapeles')
+                    ->copyMessageDuration(1500),
                 Tables\Columns\TextColumn::make('dane_ee')
                     ->label('Código DANE Colegios')
                     ->getStateUsing(function (User $record): array|string {
