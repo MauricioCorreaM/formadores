@@ -49,7 +49,15 @@ class ListUsers extends ListRecords
     public function isCampusRowsView(): bool
     {
         $user = auth()->user();
-        if (! $user || ! $user->hasRole('super_admin')) {
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->hasRole('node_owner') && ! $user->hasRole('super_admin')) {
+            return true;
+        }
+
+        if (! $user->hasRole('super_admin')) {
             return false;
         }
 
@@ -57,7 +65,32 @@ class ListUsers extends ListRecords
             return false;
         }
 
-        return ($this->getTableFilterState('view_mode')['value'] ?? 'grouped_by_user') === 'per_campus';
+        return ($this->getTableFilterState('view_mode')['value'] ?? 'per_campus') === 'per_campus';
+    }
+
+    protected function canToggleViewMode(): bool
+    {
+        $user = auth()->user();
+
+        if (! $user || ! $user->hasRole('super_admin')) {
+            return false;
+        }
+
+        return ($this->activeTab ?? 'formadores') === 'formadores';
+    }
+
+    public function setViewMode(string $viewMode): void
+    {
+        if (! $this->canToggleViewMode()) {
+            return;
+        }
+
+        if (! in_array($viewMode, ['grouped_by_user', 'per_campus'], true)) {
+            return;
+        }
+
+        data_set($this->tableFilters, 'view_mode.value', $viewMode);
+        $this->updatedTableFilters();
     }
 
     public function getTableRecordKey(Model $record): string

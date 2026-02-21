@@ -148,10 +148,6 @@ class UserResource extends Resource
 
     private static function isCampusRowsView(mixed $livewire = null): bool
     {
-        if (! self::isSuperAdminContext()) {
-            return false;
-        }
-
         if (! ($livewire instanceof ListUsers)) {
             return false;
         }
@@ -502,6 +498,13 @@ class UserResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(function (Builder $query, $livewire): Builder {
+                if (! self::isCampusRowsView($livewire)) {
+                    return $query;
+                }
+
+                return self::applyCampusRowsViewQuery($query);
+            })
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->label('Formador')
@@ -675,33 +678,41 @@ class UserResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->headerActions([
+                Tables\Actions\Action::make('view_per_campus')
+                    ->label('Vista por sede')
+                    ->icon('heroicon-o-building-office-2')
+                    ->color(fn ($livewire): string => self::isCampusRowsView($livewire) ? 'primary' : 'gray')
+                    ->disabled(fn ($livewire): bool => self::isCampusRowsView($livewire))
+                    ->visible(fn ($livewire): bool => self::isSuperAdminContext() && ($livewire instanceof ListUsers) && (($livewire->activeTab ?? 'formadores') === 'formadores'))
+                    ->action(function ($livewire): void {
+                        if ($livewire instanceof ListUsers) {
+                            $livewire->setViewMode('per_campus');
+                        }
+                    }),
+                Tables\Actions\Action::make('view_grouped_by_user')
+                    ->label('Vista agrupada')
+                    ->icon('heroicon-o-users')
+                    ->color(fn ($livewire): string => self::isCampusRowsView($livewire) ? 'gray' : 'primary')
+                    ->disabled(fn ($livewire): bool => ! self::isCampusRowsView($livewire))
+                    ->visible(fn ($livewire): bool => self::isSuperAdminContext() && ($livewire instanceof ListUsers) && (($livewire->activeTab ?? 'formadores') === 'formadores'))
+                    ->action(function ($livewire): void {
+                        if ($livewire instanceof ListUsers) {
+                            $livewire->setViewMode('grouped_by_user');
+                        }
+                    }),
+            ])
             ->filters([
                 Tables\Filters\SelectFilter::make('view_mode')
                     ->label('Vista')
-                    ->default('grouped_by_user')
+                    ->default('per_campus')
                     ->options([
                         'grouped_by_user' => 'Agrupado por usuario',
                         'per_campus' => 'Una fila por sede',
                     ])
                     ->native(false)
-                    ->visible(fn ($livewire): bool => self::isSuperAdminContext() && ($livewire instanceof ListUsers) && (($livewire->activeTab ?? 'formadores') === 'formadores'))
-                    ->query(function (Builder $query, array $data, $livewire): Builder {
-                        $viewMode = $data['value'] ?? 'grouped_by_user';
-
-                        if ($viewMode !== 'per_campus') {
-                            return $query;
-                        }
-
-                        if (! self::isSuperAdminContext()) {
-                            return $query;
-                        }
-
-                        if (($livewire instanceof ListUsers) && (($livewire->activeTab ?? 'formadores') !== 'formadores')) {
-                            return $query;
-                        }
-
-                        return self::applyCampusRowsViewQuery($query);
-                    }),
+                    ->visible(false)
+                    ->query(fn (Builder $query): Builder => $query),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
