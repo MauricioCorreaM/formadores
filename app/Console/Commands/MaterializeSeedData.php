@@ -367,7 +367,11 @@ class MaterializeSeedData extends Command
                 continue;
             }
 
-            $zone = strtolower($campusData['zone'] ?? '');
+            $zone = match (strtolower(trim($campusData['zone'] ?? ''))) {
+                'urbano', 'urbana' => 'urbana',
+                'rural' => 'rural',
+                default => strtolower(trim($campusData['zone'] ?? '')),
+            };
             if (! in_array($zone, ['urbana', 'rural'], true)) {
                 DB::table('import_issues')->insert([
                     'source' => 'all_data.csv',

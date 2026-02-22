@@ -54,21 +54,35 @@ class EditUser extends EditRecord
     {
         $this->record->loadMissing('campuses.school');
 
-        $data['school_campus_assignments'] = $this->record->campuses
-            ->map(function ($campus): array {
-                $focalizationId = $campus->pivot->focalization_id;
+        $groupedAssignments = [];
 
-                return [
-                    'school_id' => $campus->school_id,
-                    'campus_focalization_key' => $campus->id . '|' . ($focalizationId ? (string) $focalizationId : ''),
+        foreach ($this->record->campuses as $campus) {
+            $focalizationId = $campus->pivot->focalization_id;
+            $schoolId = $campus->school_id;
+            $key = $campus->id . '|' . ($focalizationId ? (string) $focalizationId : '');
+
+            if (! isset($groupedAssignments[$schoolId])) {
+                $groupedAssignments[$schoolId] = [
+                    'school_id' => $schoolId,
+                    'campus_focalization_keys' => [],
                 ];
+            }
+
+            $groupedAssignments[$schoolId]['campus_focalization_keys'][] = $key;
+        }
+
+        $data['school_campus_assignments'] = collect($groupedAssignments)
+            ->map(function (array $row): array {
+                $row['campus_focalization_keys'] = array_values(array_unique($row['campus_focalization_keys']));
+
+                return $row;
             })
             ->values()
             ->all();
 
         if (empty($data['school_campus_assignments'])) {
             $data['school_campus_assignments'] = [
-                ['school_id' => null, 'campus_focalization_key' => null],
+                ['school_id' => null, 'campus_focalization_keys' => []],
             ];
         }
 
@@ -92,7 +106,8 @@ class EditUser extends EditRecord
             ->delete();
 
         $assignments = collect(data_get($state, 'school_campus_assignments', []))
-            ->pluck('campus_focalization_key')
+            ->pluck('campus_focalization_keys')
+            ->flatten()
             ->filter()
             ->unique()
             ->values();

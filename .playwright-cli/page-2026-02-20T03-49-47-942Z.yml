@@ -1,0 +1,36 @@
+- generic [ref=e1]:
+  - main [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - generic [ref=e8]: Laravel
+          - heading "Entre a su cuenta" [level=1] [ref=e9]
+        - generic [ref=e10]:
+          - generic [ref=e11]:
+            - generic [ref=e14]:
+              - generic [ref=e17]:
+                - text: Correo electrónico
+                - superscript [ref=e18]: "*"
+              - textbox "Correo electrónico*" [active] [ref=e22]
+            - generic [ref=e25]:
+              - generic [ref=e28]:
+                - text: Contraseña
+                - superscript [ref=e29]: "*"
+              - generic [ref=e31]:
+                - textbox "Contraseña*" [ref=e33]
+                - button "Mostrar contraseña" [ref=e36] [cursor=pointer]:
+                  - generic [ref=e37]: Mostrar contraseña
+                  - img [ref=e38]
+            - generic [ref=e45]:
+              - checkbox "Recordarme" [ref=e46]
+              - generic [ref=e47]: Recordarme
+          - button "Entrar" [ref=e50] [cursor=pointer]:
+            - generic [ref=e51]: Entrar
+      - generic:
+        - dialog
+      - generic:
+        - dialog
+      - generic:
+        - dialog
+  - generic:
+    - status

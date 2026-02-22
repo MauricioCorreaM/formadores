@@ -3,11 +3,13 @@
 namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\UserResource\Pages;
+use App\Filament\Admin\Resources\UserResource\Pages\ListUsers;
 use App\Models\Campus;
 use App\Models\Node;
 use App\Models\School;
 use App\Models\User;
 use App\Support\Search\LikeSearch;
+use Illuminate\Support\Str;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -122,87 +124,174 @@ class UserResource extends Resource
         return $grouped;
     }
 
+    private static function roleOptions(): array
+    {
+        return Role::query()
+            ->whereIn('name', ['super_admin', 'node_owner', 'teacher'])
+            ->pluck('name')
+            ->mapWithKeys(function (string $name): array {
+                $label = match ($name) {
+                    'super_admin' => 'Super administrador',
+                    'node_owner' => 'Lider de nodo',
+                    'teacher' => 'Formador',
+                    default => $name,
+                };
+
+                return [$name => $label];
+            })
+            ->toArray();
+    }
+
+    private static function isSuperAdminContext(): bool
+    {
+        return auth()->user()?->hasRole('super_admin') ?? false;
+    }
+
+    private static function isCampusRowsView(mixed $livewire = null): bool
+    {
+        if (! ($livewire instanceof ListUsers)) {
+            return false;
+        }
+
+        return $livewire->isCampusRowsView();
+    }
+
+    private static function applyCampusRowsViewQuery(Builder $query): Builder
+    {
+        return $query
+            ->join('campus_user', 'campus_user.user_id', '=', 'users.id')
+            ->leftJoin('campuses', 'campuses.id', '=', 'campus_user.campus_id')
+            ->leftJoin('schools', 'schools.id', '=', 'campuses.school_id')
+            ->leftJoin('focalizations', 'focalizations.id', '=', 'campus_user.focalization_id')
+            ->addSelect('users.*')
+            ->addSelect([
+                'campus_user.id as campus_assignment_id',
+                'schools.name as campus_assignment_school_name',
+                'schools.dane_code as campus_assignment_school_dane',
+                'campuses.name as campus_assignment_name',
+                'campuses.dane_code as campus_assignment_dane',
+                'campuses.zone as campus_assignment_zone',
+                'focalizations.name as campus_assignment_focalization_name',
+            ]);
+    }
+
+    private static function resolvedRole(Forms\Get $get): ?string
+    {
+        $user = auth()->user();
+
+        if ($user?->hasRole('node_owner')) {
+            return 'teacher';
+        }
+
+        $role = $get('role');
+
+        return is_string($role) ? $role : null;
+    }
+
+    private static function isTeacherContext(Forms\Get $get): bool
+    {
+        return self::resolvedRole($get) === 'teacher';
+    }
+
+    private static function personalSectionSchema(Forms\Get $get): array
+    {
+        $baseFields = [
+            Forms\Components\TextInput::make('first_name')
+                ->label('Primer Nombre')
+                ->required()
+                ->maxLength(100),
+            Forms\Components\TextInput::make('second_name')
+                ->label('Segundo Nombre')
+                ->maxLength(100),
+            Forms\Components\TextInput::make('first_last_name')
+                ->label('Primer Apellido')
+                ->required()
+                ->maxLength(100),
+            Forms\Components\TextInput::make('second_last_name')
+                ->label('Segundo Apellido')
+                ->maxLength(100),
+            Forms\Components\TextInput::make('email')
+                ->label('Correo')
+                ->email()
+                ->required()
+                ->unique(ignoreRecord: true)
+                ->maxLength(255),
+        ];
+
+        if (! self::isTeacherContext($get)) {
+            return $baseFields;
+        }
+
+        return [
+            ...$baseFields,
+            Forms\Components\Select::make('document_type')
+                ->label('Tipo Documento')
+                ->options(self::DOCUMENT_TYPES)
+                ->required()
+                ->native()
+                ->placeholder('Selecciona un tipo de documento'),
+            Forms\Components\TextInput::make('document_number')
+                ->label('Número Identificación')
+                ->required()
+                ->maxLength(100),
+            Forms\Components\DatePicker::make('birth_date')
+                ->label('Fecha de nacimiento')
+                ->native()
+                ->displayFormat('d/m/Y')
+                ->format('Y-m-d')
+                ->defaultFocusedDate(now()->subYears(18)->toDateString())
+                ->maxDate(now()->subYears(18))
+                ->closeOnDateSelection()
+                ->rules([
+                    'required',
+                    'date',
+                    'before_or_equal:' . now()->subYears(18)->toDateString(),
+                ])
+                ->validationMessages([
+                    'before_or_equal' => 'La persona debe ser mayor de 18 años.',
+                ])
+                ->required(),
+            Forms\Components\Select::make('sex_at_birth')
+                ->label('Sexo asignado al nacer')
+                ->options(self::SEX_AT_BIRTH)
+                ->required(),
+            Forms\Components\Select::make('gender_identity')
+                ->label('Identidad Género')
+                ->options(self::GENDER_IDENTITY)
+                ->required(),
+            Forms\Components\Select::make('sexual_orientation')
+                ->label('Orientación Sexual')
+                ->options(self::SEXUAL_ORIENTATION)
+                ->required(),
+            Forms\Components\Select::make('ethnic_belonging')
+                ->label('Pertenencia Étnica')
+                ->options(self::ETHNIC_BELONGING)
+                ->required(),
+            Forms\Components\Select::make('disability')
+                ->label('Discapacidad')
+                ->options(self::DISABILITY)
+                ->required(),
+        ];
+    }
+
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
                 Forms\Components\Select::make('role')
                     ->label('Rol')
-                    ->options(fn () => Role::query()->pluck('name', 'name'))
+                    ->options(fn (): array => self::roleOptions())
                     ->required(fn () => auth()->user()?->hasRole('super_admin'))
                     ->visible(fn () => auth()->user()?->hasRole('super_admin'))
                     ->formatStateUsing(fn ($state, ?User $record) => $record?->roles->first()?->name)
                     ->dehydrated()
                     ->live(),
-                Forms\Components\Section::make('Información personal')
-                    ->schema([
-                        Forms\Components\Select::make('document_type')
-                            ->label('Tipo Documento')
-                            ->options(self::DOCUMENT_TYPES)
-                            ->required()
-                            ->searchable(),
-                        Forms\Components\TextInput::make('document_number')
-                            ->label('Número Identificación')
-                            ->required()
-                            ->maxLength(100),
-                        Forms\Components\TextInput::make('first_name')
-                            ->label('Primer Nombre')
-                            ->required()
-                            ->maxLength(100),
-                        Forms\Components\TextInput::make('second_name')
-                            ->label('Segundo Nombre')
-                            ->maxLength(100),
-                        Forms\Components\TextInput::make('first_last_name')
-                            ->label('Primer Apellido')
-                            ->required()
-                            ->maxLength(100),
-                        Forms\Components\TextInput::make('second_last_name')
-                            ->label('Segundo Apellido')
-                            ->maxLength(100),
-                        Forms\Components\TextInput::make('email')
-                            ->label('Correo')
-                            ->email()
-                            ->required()
-                            ->unique(ignoreRecord: true)
-                            ->maxLength(255),
-                        Forms\Components\DatePicker::make('birth_date')
-                            ->label('Fecha Nacimiento (AAAA/MM/DD)')
-                            ->native(false)
-                            ->displayFormat('d/m/Y')
-                            ->format('Y-m-d')
-                            ->defaultFocusedDate(now()->subYears(18)->toDateString())
-                            ->maxDate(now()->subYears(18))
-                            ->closeOnDateSelection()
-                            ->rules([
-                                'required',
-                                'date',
-                                'before_or_equal:' . now()->subYears(18)->toDateString(),
-                            ])
-                            ->validationMessages([
-                                'before_or_equal' => 'La persona debe ser mayor de 18 años.',
-                            ])
-                            ->required(),
-                        Forms\Components\Select::make('sex_at_birth')
-                            ->label('Sexo asignado al nacer')
-                            ->options(self::SEX_AT_BIRTH)
-                            ->required(),
-                        Forms\Components\Select::make('gender_identity')
-                            ->label('Identidad Género')
-                            ->options(self::GENDER_IDENTITY)
-                            ->required(),
-                        Forms\Components\Select::make('sexual_orientation')
-                            ->label('Orientación Sexual')
-                            ->options(self::SEXUAL_ORIENTATION)
-                            ->required(),
-                        Forms\Components\Select::make('ethnic_belonging')
-                            ->label('Pertenencia Étnica')
-                            ->options(self::ETHNIC_BELONGING)
-                            ->required(),
-                        Forms\Components\Select::make('disability')
-                            ->label('Discapacidad')
-                            ->options(self::DISABILITY)
-                            ->required(),
-                    ])
+                Forms\Components\Section::make(
+                    fn (Forms\Get $get): string => self::isTeacherContext($get)
+                        ? 'Información personal'
+                        : 'Información básica'
+                )
+                    ->schema(fn (Forms\Get $get): array => self::personalSectionSchema($get))
                     ->columns(2)
                     ->columnSpanFull(),
                 Forms\Components\Section::make('Información adicional')
@@ -224,6 +313,7 @@ class UserResource extends Resource
                             ->default(false),
                     ])
                     ->columns(2)
+                    ->visible(fn (Forms\Get $get) => self::isTeacherContext($get))
                     ->columnSpanFull(),
                 Forms\Components\Select::make('primary_node_id')
                     ->label('Nodo principal')
@@ -252,8 +342,8 @@ class UserResource extends Resource
                     ->default(fn () => auth()->user()?->hasRole('node_owner') ? auth()->user()?->primary_node_id : null)
                     ->searchable()
                     ->preload()
-                    ->required(fn (Forms\Get $get) => in_array($get('role'), ['teacher', 'node_owner'], true) || auth()->user()?->hasRole('node_owner'))
-                    ->visible(fn () => ! auth()->user()?->hasRole('node_owner'))
+                    ->required(fn (Forms\Get $get) => in_array(self::resolvedRole($get), ['teacher', 'node_owner'], true))
+                    ->visible(fn (Forms\Get $get) => ! auth()->user()?->hasRole('node_owner') && in_array(self::resolvedRole($get), ['teacher', 'node_owner'], true))
                     ->live(),
                 Forms\Components\Select::make('municipality_id')
                     ->label('Municipio')
@@ -284,7 +374,8 @@ class UserResource extends Resource
                         }
 
                         return self::municipalityOptionsForNode($nodeId ? (int) $nodeId : null);
-                    }),
+                    })
+                    ->visible(fn (Forms\Get $get) => self::isTeacherContext($get)),
                 Forms\Components\Repeater::make('school_campus_assignments')
                     ->label('Colegios y sedes')
                     ->dehydrated(false)
@@ -295,20 +386,36 @@ class UserResource extends Resource
                     ->live()
                     ->default(function (?User $record): array {
                         if (! $record) {
-                            return [['school_id' => null, 'campus_focalization_key' => null]];
+                            return [['school_id' => null, 'campus_focalization_keys' => []]];
                         }
 
-                        $rows = [];
+                        $groupedRows = [];
                         $record->loadMissing('campuses.school');
                         foreach ($record->campuses as $campus) {
                             $focalizationId = $campus->pivot->focalization_id;
-                            $rows[] = [
-                                'school_id' => $campus->school_id,
-                                'campus_focalization_key' => $campus->id . '|' . ($focalizationId ? (string) $focalizationId : ''),
-                            ];
+                            $schoolId = $campus->school_id;
+                            $key = $campus->id . '|' . ($focalizationId ? (string) $focalizationId : '');
+
+                            if (! isset($groupedRows[$schoolId])) {
+                                $groupedRows[$schoolId] = [
+                                    'school_id' => $schoolId,
+                                    'campus_focalization_keys' => [],
+                                ];
+                            }
+
+                            $groupedRows[$schoolId]['campus_focalization_keys'][] = $key;
                         }
 
-                        return ! empty($rows) ? $rows : [['school_id' => null, 'campus_focalization_key' => null]];
+                        $rows = collect($groupedRows)
+                            ->map(function (array $row): array {
+                                $row['campus_focalization_keys'] = array_values(array_unique($row['campus_focalization_keys']));
+
+                                return $row;
+                            })
+                            ->values()
+                            ->all();
+
+                        return ! empty($rows) ? $rows : [['school_id' => null, 'campus_focalization_keys' => []]];
                     })
                     ->schema([
                         Forms\Components\Select::make('school_id')
@@ -342,10 +449,11 @@ class UserResource extends Resource
                                 return $query->pluck('name', 'id');
                             })
                             ->afterStateUpdated(function (Forms\Set $set): void {
-                                $set('campus_focalization_key', null);
+                                $set('campus_focalization_keys', []);
                             }),
-                        Forms\Components\Select::make('campus_focalization_key')
-                            ->label('Nombre Sede')
+                        Forms\Components\Select::make('campus_focalization_keys')
+                            ->label('Nombre Sede(s)')
+                            ->multiple()
                             ->required()
                             ->searchable()
                             ->preload()
@@ -378,11 +486,12 @@ class UserResource extends Resource
                                 return $options;
                             }),
                     ])
-                    ->visible(fn (Forms\Get $get) => $get('role') === 'teacher' || auth()->user()?->hasRole('node_owner'))
-                    ->required(fn (Forms\Get $get) => $get('role') === 'teacher' || auth()->user()?->hasRole('node_owner')),
+                    ->visible(fn (Forms\Get $get) => self::isTeacherContext($get))
+                    ->required(fn (Forms\Get $get) => self::isTeacherContext($get)),
                 Forms\Components\TextInput::make('password')
                     ->password()
-                    ->visible(fn (Forms\Get $get) => ! (auth()->user()?->hasRole('super_admin') && $get('role') === 'teacher') && ! auth()->user()?->hasRole('node_owner'))
+                    ->revealable()
+                    ->default(fn () => Str::random(16))
                     ->dehydrated(fn ($state) => filled($state))
                     ->required(fn (?User $record) => $record === null)
                     ->maxLength(255),
@@ -392,10 +501,17 @@ class UserResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(function (Builder $query, $livewire): Builder {
+                if (! self::isCampusRowsView($livewire)) {
+                    return $query;
+                }
+
+                return self::applyCampusRowsViewQuery($query);
+            })
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->label('Formador')
-                    ->searchable(query: fn (Builder $query, string $search): Builder => LikeSearch::apply($query, 'name', $search)),
+                    ->searchable(query: fn (Builder $query, string $search): Builder => LikeSearch::apply($query, 'users.name', $search)),
                 Tables\Columns\TextColumn::make('document_number')
                     ->label('Identificación')
                     ->getStateUsing(function (User $record): string {
@@ -417,13 +533,48 @@ class UserResource extends Resource
                     })
                     ->searchable(query: function (Builder $query, string $search): Builder {
                         return $query->where(function (Builder $subQuery) use ($search): void {
-                            LikeSearch::apply($subQuery, 'document_number', $search);
-                            $subQuery->orWhere('document_type', 'like', '%' . $search . '%');
+                            LikeSearch::apply($subQuery, 'users.document_number', $search);
+                            $subQuery->orWhere('users.document_type', 'like', '%' . $search . '%');
                         });
                     }),
                 Tables\Columns\TextColumn::make('email')
                     ->label('Email')
-                    ->searchable(query: fn (Builder $query, string $search): Builder => LikeSearch::apply($query, 'email', $search)),
+                    ->searchable(query: fn (Builder $query, string $search): Builder => LikeSearch::apply($query, 'users.email', $search)),
+                Tables\Columns\TextColumn::make('campus_assignment_school_dane')
+                    ->label('Codigo DANE Colegios')
+                    ->badge()
+                    ->formatStateUsing(fn ($state): string => filled($state) ? (string) $state : '-')
+                    ->visible(fn ($livewire): bool => self::isCampusRowsView($livewire)),
+                Tables\Columns\TextColumn::make('campus_assignment_school_name')
+                    ->label('Colegio')
+                    ->badge()
+                    ->formatStateUsing(fn ($state): string => filled($state) ? (string) $state : '-')
+                    ->visible(fn ($livewire): bool => self::isCampusRowsView($livewire)),
+                Tables\Columns\TextColumn::make('campus_assignment_dane')
+                    ->label('Codigo DANE Sede')
+                    ->badge()
+                    ->formatStateUsing(fn ($state): string => filled($state) ? (string) $state : '-')
+                    ->visible(fn ($livewire): bool => self::isCampusRowsView($livewire)),
+                Tables\Columns\TextColumn::make('campus_assignment_name')
+                    ->label('Sede')
+                    ->badge()
+                    ->formatStateUsing(fn ($state): string => filled($state) ? (string) $state : '-')
+                    ->visible(fn ($livewire): bool => self::isCampusRowsView($livewire)),
+                Tables\Columns\TextColumn::make('campus_assignment_focalization_name')
+                    ->label('Focalizacion')
+                    ->badge()
+                    ->formatStateUsing(fn ($state): string => filled($state) ? (string) $state : '-')
+                    ->visible(fn ($livewire): bool => self::isCampusRowsView($livewire)),
+                Tables\Columns\TextColumn::make('campus_assignment_zone')
+                    ->label('Zona')
+                    ->badge()
+                    ->formatStateUsing(fn ($state): string => match ($state) {
+                        'urbana' => 'Urbana',
+                        'rural' => 'Rural',
+                        null, '' => '-',
+                        default => (string) $state,
+                    })
+                    ->visible(fn ($livewire): bool => self::isCampusRowsView($livewire)),
                 Tables\Columns\TextColumn::make('dane_ee')
                     ->label('Código DANE Colegios')
                     ->getStateUsing(function (User $record): array|string {
@@ -436,7 +587,8 @@ class UserResource extends Resource
 
                         return empty($values) ? '-' : $values;
                     })
-                    ->badge(),
+                    ->badge()
+                    ->visible(fn ($livewire): bool => ! self::isCampusRowsView($livewire)),
                 Tables\Columns\TextColumn::make('campuses.school.name')
                     ->label('Colegio(s)')
                     ->badge()
@@ -454,7 +606,8 @@ class UserResource extends Resource
                             ->all();
 
                         return empty($names) ? '-' : $names;
-                    }),
+                    })
+                    ->visible(fn ($livewire): bool => ! self::isCampusRowsView($livewire)),
                 Tables\Columns\TextColumn::make('dane_sede')
                     ->label('Código DANE Sede')
                     ->getStateUsing(function (User $record): array|string {
@@ -467,7 +620,8 @@ class UserResource extends Resource
 
                         return empty($values) ? '-' : $values;
                     })
-                    ->badge(),
+                    ->badge()
+                    ->visible(fn ($livewire): bool => ! self::isCampusRowsView($livewire)),
                 Tables\Columns\TextColumn::make('campuses.name')
                     ->label('Sedes')
                     ->badge()
@@ -485,7 +639,8 @@ class UserResource extends Resource
                             ->all();
 
                         return empty($names) ? '-' : $names;
-                    }),
+                    })
+                    ->visible(fn ($livewire): bool => ! self::isCampusRowsView($livewire)),
                 Tables\Columns\TextColumn::make('zona')
                     ->label('Zona')
                     ->getStateUsing(function (User $record): array|string {
@@ -499,7 +654,8 @@ class UserResource extends Resource
 
                         return empty($values) ? '-' : $values;
                     })
-                    ->badge(),
+                    ->badge()
+                    ->visible(fn ($livewire): bool => ! self::isCampusRowsView($livewire)),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -509,8 +665,41 @@ class UserResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->headerActions([
+                Tables\Actions\Action::make('view_per_campus')
+                    ->label('Vista por sede')
+                    ->icon('heroicon-o-building-office-2')
+                    ->color(fn ($livewire): string => self::isCampusRowsView($livewire) ? 'primary' : 'gray')
+                    ->disabled(fn ($livewire): bool => self::isCampusRowsView($livewire))
+                    ->visible(fn ($livewire): bool => self::isSuperAdminContext() && ($livewire instanceof ListUsers) && (($livewire->activeTab ?? 'formadores') === 'formadores'))
+                    ->action(function ($livewire): void {
+                        if ($livewire instanceof ListUsers) {
+                            $livewire->setViewMode('per_campus');
+                        }
+                    }),
+                Tables\Actions\Action::make('view_grouped_by_user')
+                    ->label('Vista agrupada')
+                    ->icon('heroicon-o-users')
+                    ->color(fn ($livewire): string => self::isCampusRowsView($livewire) ? 'gray' : 'primary')
+                    ->disabled(fn ($livewire): bool => ! self::isCampusRowsView($livewire))
+                    ->visible(fn ($livewire): bool => self::isSuperAdminContext() && ($livewire instanceof ListUsers) && (($livewire->activeTab ?? 'formadores') === 'formadores'))
+                    ->action(function ($livewire): void {
+                        if ($livewire instanceof ListUsers) {
+                            $livewire->setViewMode('grouped_by_user');
+                        }
+                    }),
+            ])
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('view_mode')
+                    ->label('Vista')
+                    ->default('per_campus')
+                    ->options([
+                        'grouped_by_user' => 'Agrupado por usuario',
+                        'per_campus' => 'Una fila por sede',
+                    ])
+                    ->native(false)
+                    ->visible(false)
+                    ->query(fn (Builder $query): Builder => $query),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
