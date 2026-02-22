@@ -17,5 +17,9 @@ class ImportSeedDataSeeder extends Seeder
         Artisan::call('data:materialize-seed', [
             '--truncate' => true,
         ]);
+
+        Artisan::call('data:import-formadores', [
+            '--truncate' => true,
+        ]);
     }
 }
