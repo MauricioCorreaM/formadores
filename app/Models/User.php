@@ -23,8 +23,6 @@ class User extends Authenticatable implements FilamentUser
         'name',
         'email',
         'password',
-        'must_change_password',
-        'generated_password',
         'primary_node_id',
         'document_type',
         'document_number',
@@ -53,7 +51,6 @@ class User extends Authenticatable implements FilamentUser
      */
     protected $hidden = [
         'password',
-        'generated_password',
         'remember_token',
     ];
 
@@ -68,8 +65,6 @@ class User extends Authenticatable implements FilamentUser
             'email_verified_at' => 'datetime',
             'birth_date' => 'date',
             'password' => 'hashed',
-            'must_change_password' => 'boolean',
-            'generated_password' => 'encrypted',
             'is_peasant' => 'boolean',
             'is_migrant_population' => 'boolean',
             'is_social_barra' => 'boolean',

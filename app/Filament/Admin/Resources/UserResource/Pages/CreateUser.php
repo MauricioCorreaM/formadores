@@ -49,19 +49,9 @@ class CreateUser extends CreateRecord
             $data['second_last_name'] ?? null,
         ])));
 
-        if ($this->selectedRole === 'teacher') {
-            if (empty($data['password'])) {
-                $data['password'] = Str::random(16);
-            }
-
-            return $data;
+        if (empty($data['password'])) {
+            $data['password'] = Str::random(16);
         }
-
-        $temporaryPassword = Str::random(20);
-
-        $data['password'] = $temporaryPassword;
-        $data['generated_password'] = $temporaryPassword;
-        $data['must_change_password'] = true;
 
         return $data;
     }

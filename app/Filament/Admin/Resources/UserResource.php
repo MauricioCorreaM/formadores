@@ -9,6 +9,7 @@ use App\Models\Node;
 use App\Models\School;
 use App\Models\User;
 use App\Support\Search\LikeSearch;
+use Illuminate\Support\Str;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -489,8 +490,10 @@ class UserResource extends Resource
                     ->required(fn (Forms\Get $get) => self::isTeacherContext($get)),
                 Forms\Components\TextInput::make('password')
                     ->password()
-                    ->visible(false)
+                    ->revealable()
+                    ->default(fn () => Str::random(16))
                     ->dehydrated(fn ($state) => filled($state))
+                    ->required(fn (?User $record) => $record === null)
                     ->maxLength(255),
             ]);
     }
@@ -537,22 +540,6 @@ class UserResource extends Resource
                 Tables\Columns\TextColumn::make('email')
                     ->label('Email')
                     ->searchable(query: fn (Builder $query, string $search): Builder => LikeSearch::apply($query, 'users.email', $search)),
-                Tables\Columns\TextColumn::make('generated_password')
-                    ->label('Password temporal')
-                    ->visible(fn () => auth()->user()?->hasRole('super_admin'))
-                    ->getStateUsing(function (User $record): string {
-                        if (! $record->hasAnyRole(['super_admin', 'node_owner']) || blank($record->generated_password)) {
-                            return '-';
-                        }
-
-                        return 'Copiar password';
-                    })
-                    ->badge()
-                    ->color('warning')
-                    ->copyable(fn (User $record): bool => $record->hasAnyRole(['super_admin', 'node_owner']) && filled($record->generated_password))
-                    ->copyableState(fn (User $record): ?string => $record->generated_password)
-                    ->copyMessage('Password copiado al portapapeles')
-                    ->copyMessageDuration(1500),
                 Tables\Columns\TextColumn::make('campus_assignment_school_dane')
                     ->label('Codigo DANE Colegios')
                     ->badge()
